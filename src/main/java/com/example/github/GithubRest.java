@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 
 import java.io.IOException;
+import java.util.Map;
 
 public class GithubRest {
     private final String token;
@@ -55,6 +56,38 @@ public class GithubRest {
     public JsonNode listPackageVersions(String owner, String repo, String packageType, String packageName) throws IOException, InterruptedException {
         String url = "https://api.github.com/users/" + owner + "/packages/" + packageType + "/" + packageName + "/versions?per_page=100";
         return RestUtils.getJson(url, token);
+    }
+
+    private static final String FILES_QUERY =
+            "query($owner:String!,$repo:String!,$packageName:String!) {\n" +
+            "  repository(owner:$owner, name:$repo) {\n" +
+            "    packages(first: 1, names: [$packageName]) {\n" +
+            "      nodes {\n" +
+            "        versions(first: 50) {\n" +
+            "          nodes {\n" +
+            "            version\n" +
+            "            files(first: 50) {\n" +
+            "              nodes { name size updatedAt url }\n" +
+            "            }\n" +
+            "          }\n" +
+            "        }\n" +
+            "      }\n" +
+            "    }\n" +
+            "  }\n" +
+            "}";
+
+    // REST has no endpoint for package version files; only the GraphQL API exposes PackageFile
+    public JsonNode listPackageVersionFiles(String owner, String repo, String packageName, String version) throws IOException, InterruptedException {
+        Map<String, Object> variables = Map.of("owner", owner, "repo", repo, "packageName", packageName);
+        JsonNode data = RestUtils.postGraphQL(FILES_QUERY, variables, token);
+        for (JsonNode pkg : data.path("repository").path("packages").path("nodes")) {
+            for (JsonNode ver : pkg.path("versions").path("nodes")) {
+                if (version.equals(ver.path("version").asText())) {
+                    return ver.path("files").path("nodes");
+                }
+            }
+        }
+        return JsonNodeFactory.instance.arrayNode();
     }
 
 }

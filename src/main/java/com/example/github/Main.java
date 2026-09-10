@@ -24,6 +24,9 @@ public class Main {
             if (repos.isArray()) {
                 for (JsonNode repo : repos) {
                     String repoName = repo.path("name").asText();
+
+                    if (!"mvn-ref-test01".equals(repoName)) continue;
+
                     String owner = repo.path("owner").path("login").asText(username);
                     System.out.println("Repository: " + owner + "/" + repoName);
 
@@ -48,6 +51,16 @@ public class Main {
                                         for (JsonNode tag : tags) {
                                             System.out.println("      Tag: " + tag.asText());
                                         }
+                                    }
+
+                                    // list files for this version (GraphQL-only)
+                                    JsonNode files = client.listPackageVersionFiles(owner, repoName, packageName, versionName);
+                                    if (files.isArray() && files.size() > 0) {
+                                        for (JsonNode file : files) {
+                                            System.out.println("      File: " + file.path("name").asText() + " (" + file.path("size").asText() + " bytes) " + file.path("url").asText());
+                                        }
+                                    } else {
+                                        System.out.println("      (no files)");
                                     }
                                 }
                             } else {
