@@ -3,6 +3,7 @@ package com.example.github;
 import com.fasterxml.jackson.databind.JsonNode;
 
 import java.io.IOException;
+import java.util.Map;
 
 public class Main {
     public static void main(String[] args) {
@@ -40,6 +41,10 @@ public class Main {
 
                             // list versions
                             JsonNode versions = client.listPackageVersions(owner, repoName, packageType, packageName);
+
+                            // fetch all versions' files in one GraphQL call rather than one per version
+                            Map<String, JsonNode> filesByVersion = client.listPackageFilesByVersion(owner, repoName, packageName);
+
                             if (versions.isArray() && versions.size() > 0) {
                                 for (JsonNode ver : versions) {
                                     String versionId = ver.path("id").asText();
@@ -53,9 +58,8 @@ public class Main {
                                         }
                                     }
 
-                                    // list files for this version (GraphQL-only)
-                                    JsonNode files = client.listPackageVersionFiles(owner, repoName, packageName, versionName);
-                                    if (files.isArray() && files.size() > 0) {
+                                    JsonNode files = filesByVersion.get(versionName);
+                                    if (files != null && files.isArray() && files.size() > 0) {
                                         for (JsonNode file : files) {
                                             System.out.println("      File: " + file.path("name").asText() + " (" + file.path("size").asText() + " bytes) " + file.path("url").asText());
                                         }

@@ -5,10 +5,13 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.Map;
 
 public class GithubRest {
     private final String token;
+    // avoids re-fetching the same owner+packageType list for every repo the owner has
+    private final Map<String, JsonNode> userPackagesCache = new HashMap<>();
 
     public GithubRest(String token) {
         this.token = token;
@@ -41,16 +44,26 @@ public class GithubRest {
     private static final String[] PACKAGE_TYPES = { "npm", "maven", "rubygems", "docker", "nuget", "container" };
 
     public JsonNode listUserPackages(String username, String packageType) throws IOException, InterruptedException {
+        String cacheKey = username + "/" + packageType;
+        JsonNode cached = userPackagesCache.get(cacheKey);
+        if (cached != null) {
+            return cached;
+        }
+
         String url = "https://api.github.com/users/" + username + "/packages?package_type=" + packageType + "&per_page=100";
+        JsonNode result;
         try {
-            return RestUtils.getJson(url, token);
+            result = RestUtils.getJson(url, token);
         } catch (RestUtils.HttpStatusException e) {
             // 404: no packages of this type, or 403: token lacks read:packages scope for this user
             if (e.getStatusCode() == 404 || e.getStatusCode() == 403) {
-                return JsonNodeFactory.instance.arrayNode();
+                result = JsonNodeFactory.instance.arrayNode();
+            } else {
+                throw e;
             }
-            throw e;
         }
+        userPackagesCache.put(cacheKey, result);
+        return result;
     }
 
     public JsonNode listPackageVersions(String owner, String repo, String packageType, String packageName) throws IOException, InterruptedException {
@@ -76,18 +89,18 @@ public class GithubRest {
             "  }\n" +
             "}";
 
-    // REST has no endpoint for package version files; only the GraphQL API exposes PackageFile
-    public JsonNode listPackageVersionFiles(String owner, String repo, String packageName, String version) throws IOException, InterruptedException {
+    // REST has no endpoint for package version files; only the GraphQL API exposes PackageFile.
+    // Fetches all versions' files in a single call instead of one call per version.
+    public Map<String, JsonNode> listPackageFilesByVersion(String owner, String repo, String packageName) throws IOException, InterruptedException {
         Map<String, Object> variables = Map.of("owner", owner, "repo", repo, "packageName", packageName);
         JsonNode data = RestUtils.postGraphQL(FILES_QUERY, variables, token);
+        Map<String, JsonNode> result = new HashMap<>();
         for (JsonNode pkg : data.path("repository").path("packages").path("nodes")) {
             for (JsonNode ver : pkg.path("versions").path("nodes")) {
-                if (version.equals(ver.path("version").asText())) {
-                    return ver.path("files").path("nodes");
-                }
+                result.put(ver.path("version").asText(), ver.path("files").path("nodes"));
             }
         }
-        return JsonNodeFactory.instance.arrayNode();
+        return result;
     }
 
 }
