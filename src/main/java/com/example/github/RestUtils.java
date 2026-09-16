@@ -3,6 +3,7 @@ package com.example.github;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 
 import java.io.IOException;
 import java.net.URI;
@@ -35,6 +36,25 @@ public final class RestUtils {
         }
 
         System.out.println(resp.body());
+
+        throw new HttpStatusException(resp.statusCode(), "Request failed: " + resp.statusCode() + " for " + url + " -> " + resp.body());
+    }
+
+    public static JsonNode postJson(String url, JsonNode body, String token) throws IOException, InterruptedException {
+        HttpRequest.Builder reqb = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .POST(HttpRequest.BodyPublishers.ofString(body == null ? "{}" : body.toString()))
+                .header("Accept", "application/vnd.github+json")
+                .header("Content-Type", "application/json");
+
+        if (token != null && !token.isBlank()) {
+            reqb.header("Authorization", "token " + token);
+        }
+
+        HttpResponse<String> resp = CLIENT.send(reqb.build(), HttpResponse.BodyHandlers.ofString());
+        if (resp.statusCode() >= 200 && resp.statusCode() < 300) {
+            return resp.body().isBlank() ? JsonNodeFactory.instance.objectNode() : MAPPER.readTree(resp.body());
+        }
 
         throw new HttpStatusException(resp.statusCode(), "Request failed: " + resp.statusCode() + " for " + url + " -> " + resp.body());
     }

@@ -1,0 +1,40 @@
+@server = https://api.github.com/graphql
+@token = {{$processEnv GITHUB_TOKEN}}
+
+###
+
+GET https://api.github.com/graphql
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+
+### GraphQL to list repositories
+
+POST https://api.github.com/graphql
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "query": "query { viewer { repositories(first: 100, orderBy: {field: NAME, direction: ASC}) { nodes { name isPrivate  } } } }"
+}
+
+### GraphQL to list repositories with branches 
+
+POST https://api.github.com/graphql
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "query": "query { viewer { repositories(first: 100, orderBy: {field: NAME, direction: ASC}) { nodes { name isPrivate visibility refs(first: 100, refPrefix: \"refs/heads/\") { nodes { name } } } } } }"
+}
+
+### GraphQL to list repositories with branches with workflow files
+
+POST https://api.github.com/graphql
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "query": "query { viewer { repositories(first: 100, orderBy: {field: NAME, direction: ASC}) { nodes { name isPrivate visibility refs(first: 100, refPrefix: \"refs/heads/\") { nodes { name } } workflows(first: 100) { nodes { name } } } } } }"
+}
+

@@ -26,7 +26,7 @@ public class Main {
                 for (JsonNode repo : repos) {
                     String repoName = repo.path("name").asText();
 
-                    if (!"mvn-ref-test01".equals(repoName)) continue;
+                    // if (!"mvn-ref-test01".equals(repoName)) continue;
 
                     String owner = repo.path("owner").path("login").asText(username);
                     System.out.println("Repository: " + owner + "/" + repoName);
